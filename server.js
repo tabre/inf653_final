@@ -30,6 +30,10 @@ app.get('/hello', async (req, resp) => {
     resp.json({"message": "hello"});
 });
 
+app.get('/', async (req, resp) => {
+    resp.sendFile('index.html', { root: __dirname });
+});
+
 app.use((req, resp) => {
     resp.status(404);
     if (req.accepts('html')) {
@@ -38,8 +42,6 @@ app.use((req, resp) => {
         resp.json({ error: '404 Not Found' });
     }
 });
-
-
 
 app.listen(port, () => {
     console.log(`Server listening at http://localhost:${port}`);
