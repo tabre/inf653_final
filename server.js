@@ -6,6 +6,24 @@ require('dotenv').config();
 const app = express();
 const port = 8000;
 
+function loadValidStateCodes() {
+    const statesData = require('./models/statesData.json');
+    const codes = statesData.map(state => state.code);
+    // Get unique codes
+    return [...new Set(codes)];
+}
+
+const validStateCodes = loadValidStateCodes();
+
+const verifyState = (req, res, next) => {
+    const stateCode = req.params.state.toUpperCase();
+    if (!validStateCodes.includes(stateCode)) {
+        return res.status(404).json({ error: 'Invalid state code' });
+    }
+    req.code = stateCode;
+    next();
+};
+
 async function connectDB() {
     try {
         await mongoose.connect(process.env.DATABASE_URI);
@@ -16,6 +34,8 @@ async function connectDB() {
 }
 connectDB();
 
+app.get('/states/:state', verifyState, (req, res) => {
+    res.json({ stateCode: req.code });
 });
 
 app.get('/', async (req, resp) => {
