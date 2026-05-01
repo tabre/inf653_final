@@ -15,12 +15,7 @@ async function connectDB() {
         // process.exit(1);
     }
 }
-console.log(`DATABASE URI: ${process.env.DATABASE_URI}`);
 connectDB();
-
-app.get('/', (req, resp) => {
-    resp.send('Hello World!');
-});
 
 app.get('/dbtest', async (req, resp) => {
     try {
@@ -29,6 +24,10 @@ app.get('/dbtest', async (req, resp) => {
     } catch (err) {
         resp.status(500).json({ error: err.message });
     }
+});
+
+app.get('/hello', async (req, resp) => {
+    resp.json({"message": "hello"});
 });
 
 app.use((req, resp) => {

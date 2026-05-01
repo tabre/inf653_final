@@ -12,6 +12,28 @@ services:
       - mongo_data:/data/db
       - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
       - ./models/statesFacts.json:/docker-entrypoint-initdb.d/statesFacts.json:ro
+    networks:
+      - app_network
+
+  server:
+    build: .
+    container_name: server
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - app_network
 
 volumes:
   mongo_data:
+
+networks:
+  app_network:
+    driver: bridge
