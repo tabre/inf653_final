@@ -16,17 +16,6 @@ async function connectDB() {
 }
 connectDB();
 
-app.get('/dbtest', async (req, resp) => {
-    try {
-        const states = await State.find({});
-        resp.json(states);
-    } catch (err) {
-        resp.status(500).json({ error: err.message });
-    }
-});
-
-app.get('/hello', async (req, resp) => {
-    resp.json({"message": "hello"});
 });
 
 app.get('/', async (req, resp) => {
