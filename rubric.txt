@@ -1,0 +1,16 @@
+This is a very simple outline so no traditional Rubric chart required.  
+
+As mentioned in the Project Requirements document:
+
+1) A link to your GitHub code repository (no code updates after the due date
+accepted) - required to receive a grade on your project.
+
+2) A link to your deployed project - required to receive a grade on your
+project.
+
+3) A one page PDF document discussing what challenges you faced while building
+your project. - 10% of your grade (not providing this will be enough to drop
+one letter grade)
+
+4) Automated Tests for your REST API => You will see very detailed tests on the
+automated testing page. 70 automated tests (90% of your grade)

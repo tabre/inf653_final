@@ -1,0 +1,17 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_UN}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PW}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+      - ./models/statesFacts.json:/docker-entrypoint-initdb.d/statesFacts.json:ro
+
+volumes:
+  mongo_data:

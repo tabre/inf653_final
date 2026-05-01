@@ -1,0 +1,42 @@
+[
+    {
+        "stateCode": "KS",
+        "funfacts": [
+            "Region: Midwest",
+            "Motto: To the Stars Through Difficulties",
+            "Area Codes:  316, 620, 785, 913"
+        ]
+    },
+    {
+        "stateCode": "MO",
+        "funfacts": [
+            "Region: South",
+            "Motto: The welfare of the people shall be the supreme law",
+            "Area Codes: 314, 417, 573, 636, 660, 816"
+        ]
+    },
+    {
+        "stateCode": "OK",
+        "funfacts": [
+            "Region: West",
+            "Motto: Oklahoma - In God We Trust!",
+            "Area Codes: 405, 539, 580, 918"
+        ]
+    },
+    {
+        "stateCode": "NE",
+        "funfacts": [
+            "Region: Midwest",
+            "Motto: Equality before the law",
+            "Area Codes: 308, 402"
+        ]
+    },
+    {
+        "stateCode": "CO",
+        "funfacts": [
+            "Region: West",
+            "Motto: Nil sine Numine",
+            "Area Codes: 303, 719, 720, 970"
+        ]
+    }
+]
