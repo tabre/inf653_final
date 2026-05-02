@@ -1,28 +1,16 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const State = require('./models/States');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 const port = 8000;
 
-function loadValidStateCodes() {
-    const statesData = require('./models/statesData.json');
-    const codes = statesData.map(state => state.code);
-    // Get unique codes
-    return [...new Set(codes)];
-}
+app.use(express.json());
 
-const validStateCodes = loadValidStateCodes();
-
-const verifyState = (req, res, next) => {
-    const stateCode = req.params.state.toUpperCase();
-    if (!validStateCodes.includes(stateCode)) {
-        return res.status(404).json({ error: 'Invalid state code' });
-    }
-    req.code = stateCode;
-    next();
-};
+const nonContiguousStates = [ "AK", "HI" ];
 
 async function connectDB() {
     try {
@@ -34,8 +22,206 @@ async function connectDB() {
 }
 connectDB();
 
-app.get('/states/:state', verifyState, (req, res) => {
-    res.json({ stateCode: req.code });
+function loadStatesDataSync() {
+    const filePath = path.join(__dirname, 'models', 'statesData.json');
+    const data = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(data);
+}
+
+async function loadStatesData() {
+    const statesData = loadStatesDataSync();
+
+    try {
+        const dbStates = await State.find({});
+        const funfactsMap = {};
+        dbStates.forEach(dbState => {
+            funfactsMap[dbState.stateCode] = dbState.funfacts;
+        });
+
+        statesData.forEach(state => {
+            if (funfactsMap[state.code]) {
+                state.funfacts = funfactsMap[state.code];
+            } else {
+                state.funfacts = [];
+            }
+        });
+    } catch (err) {
+        console.error('Failed to merge MongoDB funfacts:', err);
+    }
+
+    return statesData;
+}
+
+async function loadValidStateCodes() {
+    const statesData = await loadStatesData();
+    const codes = statesData.map(state => state.code);
+    return [...new Set(codes)];
+}
+
+let validStateCodes = [];
+loadValidStateCodes().then(codes => {
+    validStateCodes = codes;
+});
+
+const verifyState = (req, res, next) => {
+    const stateCode = req.params.state.toUpperCase();
+    if (!validStateCodes.includes(stateCode)) {
+        return res.status(404).json({ error: 'Invalid state code' });
+    }
+    req.code = stateCode;
+    next();
+};
+
+async function getState(code) {
+    const statesData = await loadStatesData();
+    return statesData.find(state => state.code === code) || null;
+}
+
+app.get('/states', async (req, res) => {
+    const allStates = await loadStatesData();
+    const contig = req.query.contig;
+
+    if (contig === undefined) {
+        return res.json(allStates);
+    }
+
+    if (contig === 'true') {
+        const contiguous = allStates.filter(
+            state => !nonContiguousStates.includes(state.code)
+        );
+        return res.json(contiguous);
+    }
+
+    if (contig === 'false') {
+        const nonContiguous = allStates.filter(
+            state => nonContiguousStates.includes(state.code)
+        );
+        return res.json(nonContiguous);
+    }
+
+    res.json(allStates);
+});
+
+app.get('/states/:state/capital', verifyState, async (req, res) => {
+    const state = await getState(req.code);
+    res.json({ state: state.state, capital: state.capital_city });
+});
+
+app.get('/states/:state/nickname', verifyState, async (req, res) => {
+    const state = await getState(req.code);
+    res.json({ state: state.state, nickname: state.nickname });
+});
+
+app.get('/states/:state/population', verifyState, async (req, res) => {
+    const state = await getState(req.code);
+    res.json({ state: state.state, population: state.population });
+});
+
+app.get('/states/:state/admission', verifyState, async (req, res) => {
+    const state = await getState(req.code);
+    res.json({ state: state.state, admitted: state.admission_date });
+});
+
+app.get('/states/:state/funfact', verifyState, async (req, res) => {
+    const state = await getState(req.code);
+    if (state && state.funfacts && state.funfacts.length > 0) {
+        const randomFact = state.funfacts[
+            Math.floor(Math.random() * state.funfacts.length)
+        ];
+        return res.json({ funfact: randomFact });
+    }
+    res.json({ message: `No funfacts for ${req.code}` });
+});
+
+app.get('/states/:state', verifyState, async (req, res) => {
+    res.json(await getState(req.code));
+});
+
+app.post('/states/:state/funfact', verifyState, async (req, res) => {
+    const { funfacts } = req.body;
+
+    if (!funfacts || !Array.isArray(funfacts)) {
+        return res.status(400).json(
+            { error: 'State fun facts value must be an array' }
+        );
+    }
+
+    try {
+        let state = await State.findOne({ stateCode: req.code });
+
+        if (state) {
+            state.funfacts = [...state.funfacts, ...funfacts];
+            await state.save();
+        } else {
+            state = await State.create({ stateCode: req.code, funfacts });
+        }
+
+        res.json(state);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/states/:state/funfact', verifyState, async (req, res) => {
+    const { index, funfact } = req.body;
+
+    if (!index) {
+        return res.status(400).json({ error: 'State fun fact index value required' });
+    }
+
+    if (!funfact || typeof funfact !== 'string') {
+        return res.status(400).json({ error: 'State fun fact value required' });
+    }
+
+    try {
+        const state = await State.findOne({ stateCode: req.code });
+
+        if (!state) {
+            return res.status(404).json({ error: `No fun facts found for ${req.code}` });
+        }
+
+        const arrayIndex = index - 1; // Convert from 1-based to 0-based
+
+        if (arrayIndex < 0 || arrayIndex >= state.funfacts.length) {
+            return res.status(400).json({ error: 'Invalid index value' });
+        }
+
+        state.funfacts[arrayIndex] = funfact;
+        await state.save();
+
+        res.json(state);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/states/:state/funfact', verifyState, async (req, res) => {
+    const { index } = req.body;
+
+    if (!index) {
+        return res.status(400).json({ error: 'State fun fact index value required' });
+    }
+
+    try {
+        const state = await State.findOne({ stateCode: req.code });
+
+        if (!state) {
+            return res.status(404).json({ error: `No fun facts found for ${req.code}` });
+        }
+
+        const arrayIndex = index - 1; // Convert from 1-based to 0-based
+
+        if (arrayIndex < 0 || arrayIndex >= state.funfacts.length) {
+            return res.status(400).json({ error: 'Invalid index value' });
+        }
+
+        state.funfacts.splice(arrayIndex, 1);
+        await state.save();
+
+        res.json(state);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/', async (req, resp) => {
