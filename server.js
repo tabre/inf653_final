@@ -55,8 +55,6 @@ async function loadStatesData() {
         statesData.forEach(state => {
             if (funfactsMap[state.code]) {
                 state.funfacts = funfactsMap[state.code];
-            } else {
-                state.funfacts = [];
             }
         });
     } catch (err) {
