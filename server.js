@@ -78,25 +78,55 @@ async function getState(code) {
 }
 
 app.get('/states', async (req, res) => {
-    const allStates = await loadStatesData();
+    let allStates = await loadStatesData();
     const contig = req.query.contig;
+    const orderPop = req.query.order_pop;
+    const admittedBefore = req.query.admitted_before;
+    const admittedAfter = req.query.admitted_after;
+    const hasFunfacts = req.query.has_funfacts;
 
-    if (contig === undefined) {
-        return res.json(allStates);
-    }
-
+    // Filter by contig if specified
     if (contig === 'true') {
-        const contiguous = allStates.filter(
+        allStates = allStates.filter(
             state => !nonContiguousStates.includes(state.code)
         );
-        return res.json(contiguous);
-    }
-
-    if (contig === 'false') {
-        const nonContiguous = allStates.filter(
+    } else if (contig === 'false') {
+        allStates = allStates.filter(
             state => nonContiguousStates.includes(state.code)
         );
-        return res.json(nonContiguous);
+    }
+
+    // Filter by admission date if specified
+    if (admittedBefore) {
+        const beforeDate = new Date(admittedBefore);
+        allStates = allStates.filter(
+            state => new Date(state.admission_date) < beforeDate
+        );
+    }
+
+    if (admittedAfter) {
+        const afterDate = new Date(admittedAfter);
+        allStates = allStates.filter(
+            state => new Date(state.admission_date) > afterDate
+        );
+    }
+
+    // Filter by has_funfacts if specified
+    if (hasFunfacts === 'true') {
+        allStates = allStates.filter(
+            state => state.funfacts && state.funfacts.length > 0
+        );
+    } else if (hasFunfacts === 'false') {
+        allStates = allStates.filter(
+            state => !state.funfacts || state.funfacts.length === 0
+        );
+    }
+
+    // Sort by population if specified
+    if (orderPop === 'asc') {
+        allStates.sort((a, b) => a.population - b.population);
+    } else if (orderPop === 'desc') {
+        allStates.sort((a, b) => b.population - a.population);
     }
 
     res.json(allStates);
@@ -166,18 +196,24 @@ app.patch('/states/:state/funfact', verifyState, async (req, res) => {
     const { index, funfact } = req.body;
 
     if (!index) {
-        return res.status(400).json({ error: 'State fun fact index value required' });
+        return res.status(400).json(
+            { error: 'State fun fact index value required' }
+        );
     }
 
     if (!funfact || typeof funfact !== 'string') {
-        return res.status(400).json({ error: 'State fun fact value required' });
+        return res.status(400).json(
+            { error: 'State fun fact value required' }
+        );
     }
 
     try {
         const state = await State.findOne({ stateCode: req.code });
 
         if (!state) {
-            return res.status(404).json({ error: `No fun facts found for ${req.code}` });
+            return res.status(404).json(
+                { error: `No fun facts found for ${req.code}` }
+            );
         }
 
         const arrayIndex = index - 1; // Convert from 1-based to 0-based
@@ -199,14 +235,18 @@ app.delete('/states/:state/funfact', verifyState, async (req, res) => {
     const { index } = req.body;
 
     if (!index) {
-        return res.status(400).json({ error: 'State fun fact index value required' });
+        return res.status(400).json(
+            { error: 'State fun fact index value required' }
+        );
     }
 
     try {
         const state = await State.findOne({ stateCode: req.code });
 
         if (!state) {
-            return res.status(404).json({ error: `No fun facts found for ${req.code}` });
+            return res.status(404).json(
+                { error: `No fun facts found for ${req.code}` }
+            );
         }
 
         const arrayIndex = index - 1; // Convert from 1-based to 0-based
