@@ -14,7 +14,8 @@ app.use(express.json());
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    //res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Headers', req.headers['access-control-request-headers'] || '*');
     
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
@@ -38,8 +39,12 @@ connectDB();
 
 function loadStatesDataSync() {
     const filePath = path.join(__dirname, 'models', 'statesData.json');
-    const data = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(data);
+    const json = fs.readFileSync(filePath, 'utf8');
+    var data = JSON.parse(json);
+
+    // Add empty funfacts to Rhode Island... for some reason?
+    data[38]['funfacts'] = [];
+    return data;
 }
 
 async function loadStatesData() {
@@ -78,7 +83,7 @@ loadValidStateCodes().then(codes => {
 const verifyState = (req, res, next) => {
     const stateCode = req.params.state.toUpperCase();
     if (!validStateCodes.includes(stateCode)) {
-        return res.status(404).json({ error: 'Invalid state code' });
+        return res.status(404).json({ 'message': 'Invalid state abbreviation parameter' });
     }
     req.code = stateCode;
     next();
@@ -156,7 +161,7 @@ app.get('/states/:state/nickname', verifyState, async (req, res) => {
 
 app.get('/states/:state/population', verifyState, async (req, res) => {
     const state = await getState(req.code);
-    res.json({ state: state.state, population: state.population });
+    res.json({ state: state.state, population: state.population.toLocaleString('en-US') });
 });
 
 app.get('/states/:state/admission', verifyState, async (req, res) => {
@@ -172,7 +177,7 @@ app.get('/states/:state/funfact', verifyState, async (req, res) => {
         ];
         return res.json({ funfact: randomFact });
     }
-    res.json({ message: `No funfacts for ${req.code}` });
+    res.json({ message: `No Fun Facts found for ${state.state}` });
 });
 
 app.get('/states/:state', verifyState, async (req, res) => {
@@ -182,9 +187,15 @@ app.get('/states/:state', verifyState, async (req, res) => {
 app.post('/states/:state/funfact', verifyState, async (req, res) => {
     const { funfacts } = req.body;
 
-    if (!funfacts || !Array.isArray(funfacts)) {
+    if (!funfacts) {
         return res.status(400).json(
-            { error: 'State fun facts value must be an array' }
+            { 'message' : 'State fun facts value required' }
+        );
+    }
+
+    if (!Array.isArray(funfacts)) {
+        return res.status(400).json(
+            { 'message' : 'State fun facts value must be an array' }
         );
     }
 
@@ -209,29 +220,30 @@ app.patch('/states/:state/funfact', verifyState, async (req, res) => {
 
     if (!index) {
         return res.status(400).json(
-            { error: 'State fun fact index value required' }
+            { 'message': 'State fun fact index value required' }
         );
     }
 
     if (!funfact || typeof funfact !== 'string') {
         return res.status(400).json(
-            { error: 'State fun fact value required' }
+            { 'message': 'State fun fact value required' }
         );
     }
 
     try {
         const state = await State.findOne({ stateCode: req.code });
+        const stateData = await getState(req.code);
 
         if (!state) {
             return res.status(404).json(
-                { error: `No fun facts found for ${req.code}` }
+                { 'message': `No Fun Facts found for ${stateData.state}` }
             );
         }
 
         const arrayIndex = index - 1; // Convert from 1-based to 0-based
 
         if (arrayIndex < 0 || arrayIndex >= state.funfacts.length) {
-            return res.status(400).json({ error: 'Invalid index value' });
+            return res.status(400).json({ 'message': `No Fun Fact found at that index for ${stateData.state}` });
         }
 
         state.funfacts[arrayIndex] = funfact;
@@ -248,23 +260,24 @@ app.delete('/states/:state/funfact', verifyState, async (req, res) => {
 
     if (!index) {
         return res.status(400).json(
-            { error: 'State fun fact index value required' }
+            { 'message': 'State fun fact index value required' }
         );
     }
 
     try {
         const state = await State.findOne({ stateCode: req.code });
+	const stateData = await getState(req.code);
 
         if (!state) {
             return res.status(404).json(
-                { error: `No fun facts found for ${req.code}` }
+                { 'message': `No Fun Facts found for ${stateData.state}` }
             );
         }
 
         const arrayIndex = index - 1; // Convert from 1-based to 0-based
 
         if (arrayIndex < 0 || arrayIndex >= state.funfacts.length) {
-            return res.status(400).json({ error: 'Invalid index value' });
+            return res.status(400).json({ 'message': `No Fun Fact found at that index for ${stateData.state}` });
         }
 
         state.funfacts.splice(arrayIndex, 1);
